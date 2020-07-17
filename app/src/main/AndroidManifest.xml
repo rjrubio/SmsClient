@@ -4,10 +4,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/impruv"
+        android:icon="@drawable/ic_mydoctorph"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/impruv"
         android:supportsRtl="true"
@@ -17,7 +20,26 @@
             android:name=".MyService"
             android:enabled="true"
             android:exported="true"></service>
+        <service android:name=".MyFirebaseMessagingService"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+            </intent-filter>
+        </service>
 
+        <service
+            android:name="MyJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE" >
+        </service>
+        <receiver android:name="ServiceBroadcastReceiver"></receiver>
+        <receiver android:name="StartMyServiceAtBootReciever"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter android:directBootAware="true">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"

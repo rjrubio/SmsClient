@@ -1,29 +1,32 @@
 package com.example.smsclient;
-
-import android.graphics.Color;
+import android.Manifest;
+import android.os.Build;
 import android.os.Bundle;
-
-
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.content.Intent;
 import androidx.core.app.ActivityCompat;
 import android.content.pm.PackageManager;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
-import android.content.BroadcastReceiver;
-import 	android.content.IntentFilter;
 import android.content.Context;
 
+import com.android.volley.Request;
 import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.firebase.iid.InstanceIdResult;
+import com.google.firebase.messaging.FirebaseMessaging;
 
-import java.util.ArrayList;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -34,10 +37,9 @@ public class MainActivity extends AppCompatActivity {
     private Button buttonStart;
     private Button buttonStop;
     private Context mContext;
-    private RecyclerView recyclerView;
-    private RecyclerView.Adapter mAdapter;
-    private RecyclerView.LayoutManager layoutManager;
-    private ArrayList<String> myDataset = new ArrayList<>();
+    private String apiurl = "http://192.168.254.111:8000/sms/";
+    private String apiurlDevice = "http://192.168.254.111:8000/devices/";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,43 +55,12 @@ public class MainActivity extends AppCompatActivity {
         //ask neccessary permission/s
         askPermission();
 
-        recyclerView = findViewById(R.id.my_recycler_view);
-
-        // use this setting to improve performance if you know that changes
-        // in content do not change the layout size of the RecyclerView
-        recyclerView.setHasFixedSize(true);
-
-        // use a linear layout manager
-        layoutManager = new LinearLayoutManager(this);
-        recyclerView.setLayoutManager(layoutManager);
-        recyclerView.setBackgroundColor(Color.BLACK);
-
-        // specify an adapter (see also next example)
-        mAdapter = new MyAdapter(myDataset);
-        recyclerView.setAdapter(mAdapter);
-
         buttonStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                myDataset.add(0,"Starting service worker");
-                mAdapter.notifyItemInserted(0);
+                //Util.scheduleJob(mContext);
                 //start our service worker
-                startService(view);
-                //get recieved data from our Local broadcast manager
-                LocalBroadcastManager.getInstance(getBaseContext()).registerReceiver(
-                        new BroadcastReceiver() {
-                            @Override
-                            public void onReceive(Context context, Intent intent) {
-                                String mobilenumber = intent.getStringExtra("MOBILENUMBER");
-                                String message = intent.getStringExtra("MESSAGE");
-                                String status = intent.getStringExtra("STATUS");
-                                if(myDataset.size() >100)
-                                    myDataset.clear();
-                                myDataset.add(0,status+": "+mobilenumber+": "+message);
-                                mAdapter.notifyItemInserted(0);
-                            }
-                        }, new IntentFilter("SMSSERVER")
-                );
+                startService();
                 editTextAPI.setEnabled(false);
                 intervals.setEnabled(false);
                 buttonStart.setEnabled(false);
@@ -99,36 +70,23 @@ public class MainActivity extends AppCompatActivity {
         buttonStop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                stopService(view);
+                //stopService(view);
                 editTextAPI.setEnabled(true);
                 intervals.setEnabled(true);
                 buttonStart.setEnabled(true);
                 buttonStop.setEnabled(false);
-                myDataset.add(0,"Stoping service worker");
-                mAdapter.notifyItemInserted(0);
 
             }
         });
 
     }
     public void askPermission(){
-        int reqCodeSMS = 101;
-        if (ActivityCompat.checkSelfPermission(this,
-                android.Manifest.permission.SEND_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
 
-            // Permission is not granted
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    android.Manifest.permission.SEND_SMS)) {
-            } else {
-                // No explanation needed; request the permission
-                ActivityCompat.requestPermissions(this,
-                        new String[]{android.Manifest.permission.SEND_SMS},
-                        reqCodeSMS);
-            }
-        } else {
-            // Permission has already been granted
-        }
+        String[] permissions = new String[]{
+                Manifest.permission.SEND_SMS,
+                Manifest.permission.READ_PHONE_STATE};
+        int ALL_PERMISSIONS = 101;
+        ActivityCompat.requestPermissions(this, permissions, ALL_PERMISSIONS);
     }
     @Override
     public void onRequestPermissionsResult(int requestCode,
@@ -152,12 +110,56 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // Start the service
-    public void startService(View view) {
+    public void startService() {
+        if (!BuildConfig.DEBUG) {
+            apiurl = editTextAPI.getText().toString();
+            apiurlDevice = apiurl.replace("sms", "devices");
+        }
         //Pass uri via intent to Service
-        Intent intent= new Intent(this, MyService.class);
-        intent.putExtra("API", editTextAPI.getText().toString());
-        intent.putExtra("INTERVALS", Integer.parseInt(intervals.getText().toString()) *1000);
-        startService(intent);
+        Intent intent= new Intent(mContext, MyService.class);
+        intent.putExtra("API", apiurl);
+        intent.putExtra("INTERVALS", Integer.parseInt(intervals.getText().toString()));
+        startForegroundService (intent);
+        //register device id to our web service
+        FirebaseInstanceId.getInstance().getInstanceId().addOnSuccessListener( this,  new OnSuccessListener<InstanceIdResult>() {
+            @Override
+            public void onSuccess(InstanceIdResult instanceIdResult) {
+                String updatedToken = instanceIdResult.getToken();
+                RequestQueue queue = Volley.newRequestQueue(mContext);
+                JSONObject jsonobject = new JSONObject();
+                try{
+                    jsonobject.put("device_id", updatedToken);
+                    jsonobject.put("device_model", Build.MODEL);
+                    jsonobject.put("device_manufacturer", Build.MANUFACTURER);
+                    jsonobject.put("api_url", apiurl);
+                }catch (JSONException ex){
+                    Log.e("MainActivity ", ex.toString());
+                }
+
+                JsonObjectRequest getRequest = new JsonObjectRequest(Request.Method.POST, apiurlDevice, jsonobject,
+                        new Response.Listener<JSONObject>() {
+                            @Override
+                            public void onResponse(JSONObject response) {
+                                // display response
+                                Log.d("Response PUT", response.toString());
+                            }
+                        },
+                        new Response.ErrorListener() {
+                            @Override
+                            public void onErrorResponse(VolleyError error) {
+                                Log.d("Error.Response", error.toString());
+                            }
+                        }
+                );
+                // add it to the RequestQueue
+                queue.add(getRequest);
+            }
+        });
+
+        FirebaseMessaging.getInstance().subscribeToTopic("SMS-SERVER");
+
+
+
     }
     // Stop the service
     public void stopService(View view) {

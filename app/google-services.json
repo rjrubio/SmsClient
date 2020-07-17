@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "72735687358",
+    "firebase_url": "https://sms-server-ph.firebaseio.com",
+    "project_id": "sms-server-ph",
+    "storage_bucket": "sms-server-ph.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:72735687358:android:f03d706d5606558d9914ef",
+        "android_client_info": {
+          "package_name": "com.example.smsclient"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "72735687358-qqafeb85r9aciieo2qug765pk35irumh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDq1GFmbguDAnmo33HCMkKsKH1T9-zFBa8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "72735687358-qqafeb85r9aciieo2qug765pk35irumh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
